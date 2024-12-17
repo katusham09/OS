@@ -10,11 +10,14 @@
 
 int server_sock = -1;
 int client_socket = -1;
-volatile sig_atomic_t running = 1;
+volatile sig_atomic_t wasSigHup = 0;
 
 void handle_signal(int sig) 
 {
-    running = 0;
+    if (sig == SIGHUP) {
+        printf("Получен сигнал SIGHUP\n");
+        wasSigHup = 1;
+    }
 }
 
 int main() 
@@ -56,7 +59,7 @@ int main()
     sigaddset(&blockedMask, SIGHUP);
     sigprocmask(SIG_BLOCK, &blockedMask, &origMask);
 
-    while (running) 
+    while (1) 
     {
         fd_set read_fds;
         FD_ZERO(&read_fds);
@@ -82,6 +85,10 @@ int main()
                 perror("pselect");
                 break;
             }
+        }
+
+        if (wasSigHup) {
+            wasSigHup = 0;  
         }
 
         if (FD_ISSET(server_sock, &read_fds)) {
@@ -128,7 +135,8 @@ int main()
     }
 
     close(server_sock);
-    close(client_socket);
+    if (client_socket != -1)
+        close(client_socket);
 
     return 0;
 }
